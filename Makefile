@@ -1,0 +1,1 @@
+default: python main.py
