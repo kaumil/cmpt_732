@@ -1,18 +1,17 @@
-import asyncio
-import time
 import uuid
 import os
-import pickle
+import json
 from bs4 import BeautifulSoup
 from .utils import Utils
 from pathlib import Path
+import re
 
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import NoSuchWindowException
+from selenium.common.exceptions import TimeoutException
 
 
 class CADORSQueryScrapper:
@@ -26,11 +25,15 @@ class CADORSQueryScrapper:
             config ([dict]): [Configuration path to provide configuration details]
         """
         self.driver = None
+        self.options = {}
         self.occurance_url = None
         self.items_per_page = -1
-        self.current_page = 1
+        self.current_page = int(config["url_scrape_start"])
         self.current_item = 0
         self.occurances = -1
+        self.current_batch = 1
+        self.url_scrape_limit = int(config["url_scrape_limit"])
+        self.batch_size = int(config["batch_size"])
         self.base_url = config["base_url"] + config["query_page_extension"]
         self.driver_path = config["driver_path"]
         self.occurances_output_folder = config["occurances_output_folder"]
@@ -57,7 +60,7 @@ class CADORSQueryScrapper:
             ]
         """
         options = Options()
-        options.headless = True
+        options.headless = False
         options.add_argument("--window-size=1920,1200")
 
         driver = webdriver.Chrome(executable_path=self.driver_path, options=options)
@@ -69,13 +72,12 @@ class CADORSQueryScrapper:
         search_btn.click()
 
         wait = WebDriverWait(driver, 240)
+        # print("Waiting to get Summary results....")
         wait.until(
             lambda x: x.find_element(
                 By.XPATH, "//*[contains(text(), ': Summary Results')]"
             )
         )
-
-        driver.get(driver.current_url)
 
         occurance_element = driver.find_element(
             By.XPATH, "//div[@class='col-md-6 mrgn-bttm-md form-inline']"
@@ -84,14 +86,23 @@ class CADORSQueryScrapper:
 
         ids_per_page_element = driver.find_element(By.ID, "hidRecordsPerPage")
 
+        input_top = driver.find_element(By.ID, "txtTopPageNumber")
+        driver.execute_script("arguments[0].value=''", input_top)
+        input_top.send_keys(str(self.current_page))
+        go_btn = driver.find_element(By.ID, "btnGoToPage")
+        go_btn.click()
+        # print(driver.current_url)
+
         return (
             driver,
+            options,
             driver.current_url,
             int(Utils.get_numbers(occurance_text)[-1]),
-            int(ids_per_page_element.get_attribute("value")),
+            15
+            # int(ids_per_page_element.get_attribute("value")),
         )
 
-    async def scrape_occurances(self):
+    def scrape_occurances(self):
         """
         [
             Function to scrape page occurances on the page
@@ -99,12 +110,13 @@ class CADORSQueryScrapper:
         """
         (
             self.driver,
+            self.options,
             self.occurance_url,
             self.occurances,
             self.items_per_page,
         ) = self._get_summary_results()
 
-        while self.current_item <= self.occurances:
+        while self.current_page <= self.occurances:
             # the scraping of all the occurances hasn't completed yet.
 
             element = self.driver.find_element(
@@ -115,19 +127,29 @@ class CADORSQueryScrapper:
             self.urls.append(element.get_attribute("href"))
 
             self.current_item += 1
+            # print(f"URLS fetched: {self.urls[-1]}")
+            # print(self.current_item)
 
             if self.current_item == self.items_per_page:
-
-                # only for local will have to change for lambda
-                await self._write_occurances_files(self.urls)
-                self.urls = []
                 # End of page
-                # Change url code goes here
+
+                # writing it to files
+                if self.current_batch == self.batch_size:
+                    # print("Printing the occurances")
+                    self._write_occurances_files(self.urls)
+                    self.urls = []
+                    self.current_batch = 0
+
+                print("CURRENT PAGE: ", self.current_page)
+                if self.current_page == self.url_scrape_limit:
+                    if self.urls:
+                        self._write_occurances_files(self.urls)
+                    break
 
                 next_button = self.driver.find_element(By.ID, "btnNextTop")
+                # print("Clicking the next button")
                 next_button.click()
 
-                time.sleep(10)
                 wait = WebDriverWait(self.driver, 240)
                 wait.until(
                     lambda x: int(
@@ -140,23 +162,23 @@ class CADORSQueryScrapper:
                     )
                     == self.current_page + 1
                 )
-                self.driver.get(self.driver.current_url)
                 self.current_page += 1
-                print(self.driver.current_url)
+                self.current_batch += 1
                 self.current_item = 0
 
-    async def _write_occurances_files(self, occurances: list):
+    def _write_occurances_files(self, occurances: list):
         """
         Function to write all occurance urls to files
 
         Args:
             occurances (list): [List of all occurance urls for incidents]
         """
-        print("Trying to print the occurances")
+        # print("Trying to print the occurances")
         with open(
-            os.path.join(self.occurances_output_folder, str(uuid.uuid4())), "wb"
+            os.path.join(self.occurances_output_folder, str(uuid.uuid4()) + ".json"),
+            "w",
         ) as f:
-            pickle.dump(occurances, f)
+            json.dump(occurances, f)
 
 
 class CADORSPageScrapper:
@@ -217,38 +239,65 @@ class CADORSPageScrapper:
         cadors_number_val = Utils.clean_text(cadors_number_val.text)
         occurance_category_val = Utils.clean_text(occurance_category_val.text)
 
-        (
-            occurance_information_section,
-            aircraft_information_section,
-            occurance_summary,
-        ) = panel_body.findAll(
+        temp = panel_body.find("div", attrs={"class": "row"})
+        t = 0
+        for ele in temp.findAll("div", attrs={"class": "col-md-3 mrgn-bttm-sm"}):
+            x = ele.text
+            x = re.sub(" +", " ", x)
+            x = x.strip()
+            t += 1
+            if t == 2:
+                cador_no = x
+                break
+        self.page_data["CADORS Number"] = cador_no
+        os_g = []
+
+        for ele in panel_body.findAll(
             "section", attrs={"class": "mrgn-bttm-sm panel panel-primary"}
-        )
-
-        occurance_information_section_panel_body = occurance_information_section.find(
-            "div", attrs={"class": "panel-body"}
-        )
-
-        key, val = None, None
-        cnt = 0
-
-        for row in occurance_information_section_panel_body.findAll(
-            "div", attrs={"class": "row"}
         ):
+            head = ele.find("div", attrs={"class": "well well-sm"}).text
+            res = re.sub(" +", " ", head)
+            res = res.strip()
+            # print('\n',res,len(res),'\n')
+            if res == "Occurrence Information":
+                occurance_information_section_panel_body = ele.find(
+                    "div", attrs={"class": "panel-body"}
+                )
+                key, val = None, None
+                cnt = 0
 
-            items = row.findAll(
-                "div", class_=["col-md-3 mrgn-bttm-md", "col-md-4 mrgn-bttm-md"]
-            )
+                for row in occurance_information_section_panel_body.findAll(
+                    "div", attrs={"class": "row"}
+                ):
 
-            for item in items:
-                if cnt % 2 == 0:
-                    key = Utils.clean_text(item.text)
+                    items = row.findAll(
+                        "div", class_=["col-md-3 mrgn-bttm-md", "col-md-4 mrgn-bttm-md"]
+                    )
 
-                else:
-                    val = Utils.clean_text(item.text)
+                    for item in items:
+                        if cnt % 2 == 0:
+                            key = Utils.clean_text(item.text)
 
-                    self.page_data[key] = val
-                cnt += 1
+                        else:
+                            val = Utils.clean_text(item.text)
 
-    async def _write_data(self):
-        pass
+                            self.page_data[key] = val
+                        cnt += 1
+            elif res == "Occurrence Summary":
+                a = ele.findAll("div", attrs={"class": "col-md-3 mrgn-bttm-md"})
+                for i in a:
+                    x = i.text
+                    x = re.sub(" +", " ", x)
+                    x = x.strip()
+                    if x != "Date Entered:" and x != "Narrative:":
+                        date = x
+                        break
+                b = ele.find(
+                    "div", attrs={"class": "col-md-8 mrgn-bttm-md width-670px"}
+                ).text
+                b = re.sub(" +", " ", b)
+                summary = b.strip()
+                # print('\n','Date:\n',date,'--',len(date),'\n','Summary:\n',summary,'--',len(summary),'\n')
+                os_g.append({"Date": date, "Summary": summary})
+        self.page_data["Occurrence Summary"] = os_g
+        return self.page_data
