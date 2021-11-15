@@ -28,10 +28,11 @@ class CADORSQueryScrapper:
         self.options = {}
         self.occurance_url = None
         self.items_per_page = -1
-        self.current_page = 1
+        self.current_page = int(config["url_scrape_start"])
         self.current_item = 0
         self.occurances = -1
         self.current_batch = 1
+        self.url_scrape_limit = int(config["url_scrape_limit"])
         self.batch_size = int(config["batch_size"])
         self.base_url = config["base_url"] + config["query_page_extension"]
         self.driver_path = config["driver_path"]
@@ -71,7 +72,7 @@ class CADORSQueryScrapper:
         search_btn.click()
 
         wait = WebDriverWait(driver, 240)
-        print("Waiting to get Summary results....")
+        # print("Waiting to get Summary results....")
         wait.until(
             lambda x: x.find_element(
                 By.XPATH, "//*[contains(text(), ': Summary Results')]"
@@ -90,7 +91,7 @@ class CADORSQueryScrapper:
         input_top.send_keys(str(self.current_page))
         go_btn = driver.find_element(By.ID, "btnGoToPage")
         go_btn.click()
-        print(driver.current_url)
+        # print(driver.current_url)
 
         return (
             driver,
@@ -115,7 +116,7 @@ class CADORSQueryScrapper:
             self.items_per_page,
         ) = self._get_summary_results()
 
-        while self.current_item <= self.occurances:
+        while self.current_page <= self.occurances:
             # the scraping of all the occurances hasn't completed yet.
 
             element = self.driver.find_element(
@@ -126,21 +127,27 @@ class CADORSQueryScrapper:
             self.urls.append(element.get_attribute("href"))
 
             self.current_item += 1
-            print(f"URLS fetched: {self.urls[-1]}")
-            print(self.current_item)
+            # print(f"URLS fetched: {self.urls[-1]}")
+            # print(self.current_item)
 
             if self.current_item == self.items_per_page:
                 # End of page
 
                 # writing it to files
                 if self.current_batch == self.batch_size:
-                    print("Printing the occurances")
+                    # print("Printing the occurances")
                     self._write_occurances_files(self.urls)
                     self.urls = []
-                    self.current_batch = 1
+                    self.current_batch = 0
+
+                print("CURRENT PAGE: ", self.current_page)
+                if self.current_page == self.url_scrape_limit:
+                    if self.urls:
+                        self._write_occurances_files(self.urls)
+                    break
 
                 next_button = self.driver.find_element(By.ID, "btnNextTop")
-                print("Clicking the next button")
+                # print("Clicking the next button")
                 next_button.click()
 
                 wait = WebDriverWait(self.driver, 240)
@@ -166,9 +173,10 @@ class CADORSQueryScrapper:
         Args:
             occurances (list): [List of all occurance urls for incidents]
         """
-        print("Trying to print the occurances")
+        # print("Trying to print the occurances")
         with open(
-            os.path.join(self.occurances_output_folder, str(uuid.uuid4()) + ".txt"), "w"
+            os.path.join(self.occurances_output_folder, str(uuid.uuid4()) + ".json"),
+            "w",
         ) as f:
             json.dump(occurances, f)
 
@@ -231,29 +239,27 @@ class CADORSPageScrapper:
         cadors_number_val = Utils.clean_text(cadors_number_val.text)
         occurance_category_val = Utils.clean_text(occurance_category_val.text)
 
-       
-        # print('\nGURDEBUG\n',panel_body.findAll("section", attrs={"class": "mrgn-bttm-sm panel panel-primary"}))
-        
-        # (
-        #     occurance_information_section,
-        #     aircraft_information_section,
-        #     occurance_summary,
-        # ) = panel_body.findAll(
-        #     "section", attrs={"class": "mrgn-bttm-sm panel panel-primary"}
-        # )
-        
-        os=[]
-        
+        temp = panel_body.find("div", attrs={"class": "row"})
+        t = 0
+        for ele in temp.findAll("div", attrs={"class": "col-md-3 mrgn-bttm-sm"}):
+            x = ele.text
+            x = re.sub(" +", " ", x)
+            x = x.strip()
+            t += 1
+            if t == 2:
+                cador_no = x
+                break
+        self.page_data["CADORS Number"] = cador_no
+        os_g = []
+
         for ele in panel_body.findAll(
             "section", attrs={"class": "mrgn-bttm-sm panel panel-primary"}
         ):
-            head= ele.find(
-            "div", attrs={"class": "well well-sm"}
-        ).text
-            res = re.sub(' +', ' ', head)
-            res=res.strip()
+            head = ele.find("div", attrs={"class": "well well-sm"}).text
+            res = re.sub(" +", " ", head)
+            res = res.strip()
             # print('\n',res,len(res),'\n')
-            if res=='Occurrence Information':
+            if res == "Occurrence Information":
                 occurance_information_section_panel_body = ele.find(
                     "div", attrs={"class": "panel-body"}
                 )
@@ -277,26 +283,21 @@ class CADORSPageScrapper:
 
                             self.page_data[key] = val
                         cnt += 1
-            elif res=='Occurrence Summary':
-                    a=ele.findAll(
-                    "div", attrs={"class": "col-md-3 mrgn-bttm-md"}
-                )
-                    for i in a:
-                        x=i.text
-                        x = re.sub(' +', ' ', x)
-                        x=x.strip()
-                        if x!="Date Entered:" and x!="Narrative:":
-                            date=x
-                            break
-                    b=ele.find(
+            elif res == "Occurrence Summary":
+                a = ele.findAll("div", attrs={"class": "col-md-3 mrgn-bttm-md"})
+                for i in a:
+                    x = i.text
+                    x = re.sub(" +", " ", x)
+                    x = x.strip()
+                    if x != "Date Entered:" and x != "Narrative:":
+                        date = x
+                        break
+                b = ele.find(
                     "div", attrs={"class": "col-md-8 mrgn-bttm-md width-670px"}
                 ).text
-                    b = re.sub(' +', ' ', b)
-                    summary=b.strip()
-                    #print('\n','Date:\n',date,'--',len(date),'\n','Summary:\n',summary,'--',len(summary),'\n')
-                    os.append({'Date':date,'Summary':summary})
-        self.page_data['Occurrence Summary']=os
+                b = re.sub(" +", " ", b)
+                summary = b.strip()
+                # print('\n','Date:\n',date,'--',len(date),'\n','Summary:\n',summary,'--',len(summary),'\n')
+                os_g.append({"Date": date, "Summary": summary})
+        self.page_data["Occurrence Summary"] = os_g
         return self.page_data
-
-    async def _write_data(self):
-        pass
