@@ -4,6 +4,7 @@ import json
 from bs4 import BeautifulSoup
 from .utils import Utils
 from pathlib import Path
+import re
 
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
@@ -230,39 +231,71 @@ class CADORSPageScrapper:
         cadors_number_val = Utils.clean_text(cadors_number_val.text)
         occurance_category_val = Utils.clean_text(occurance_category_val.text)
 
-        (
-            occurance_information_section,
-            aircraft_information_section,
-            occurance_summary,
-        ) = panel_body.findAll(
+       
+        # print('\nGURDEBUG\n',panel_body.findAll("section", attrs={"class": "mrgn-bttm-sm panel panel-primary"}))
+        
+        # (
+        #     occurance_information_section,
+        #     aircraft_information_section,
+        #     occurance_summary,
+        # ) = panel_body.findAll(
+        #     "section", attrs={"class": "mrgn-bttm-sm panel panel-primary"}
+        # )
+        
+        os=[]
+        
+        for ele in panel_body.findAll(
             "section", attrs={"class": "mrgn-bttm-sm panel panel-primary"}
-        )
-
-        occurance_information_section_panel_body = occurance_information_section.find(
-            "div", attrs={"class": "panel-body"}
-        )
-
-        key, val = None, None
-        cnt = 0
-
-        for row in occurance_information_section_panel_body.findAll(
-            "div", attrs={"class": "row"}
         ):
+            head= ele.find(
+            "div", attrs={"class": "well well-sm"}
+        ).text
+            res = re.sub(' +', ' ', head)
+            res=res.strip()
+            # print('\n',res,len(res),'\n')
+            if res=='Occurrence Information':
+                occurance_information_section_panel_body = ele.find(
+                    "div", attrs={"class": "panel-body"}
+                )
+                key, val = None, None
+                cnt = 0
 
-            items = row.findAll(
-                "div", class_=["col-md-3 mrgn-bttm-md", "col-md-4 mrgn-bttm-md"]
-            )
+                for row in occurance_information_section_panel_body.findAll(
+                    "div", attrs={"class": "row"}
+                ):
 
-            for item in items:
-                if cnt % 2 == 0:
-                    key = Utils.clean_text(item.text)
+                    items = row.findAll(
+                        "div", class_=["col-md-3 mrgn-bttm-md", "col-md-4 mrgn-bttm-md"]
+                    )
 
-                else:
-                    val = Utils.clean_text(item.text)
+                    for item in items:
+                        if cnt % 2 == 0:
+                            key = Utils.clean_text(item.text)
 
-                    self.page_data[key] = val
-                cnt += 1
+                        else:
+                            val = Utils.clean_text(item.text)
 
+                            self.page_data[key] = val
+                        cnt += 1
+            elif res=='Occurrence Summary':
+                    a=ele.findAll(
+                    "div", attrs={"class": "col-md-3 mrgn-bttm-md"}
+                )
+                    for i in a:
+                        x=i.text
+                        x = re.sub(' +', ' ', x)
+                        x=x.strip()
+                        if x!="Date Entered:" and x!="Narrative:":
+                            date=x
+                            break
+                    b=ele.find(
+                    "div", attrs={"class": "col-md-8 mrgn-bttm-md width-670px"}
+                ).text
+                    b = re.sub(' +', ' ', b)
+                    summary=b.strip()
+                    #print('\n','Date:\n',date,'--',len(date),'\n','Summary:\n',summary,'--',len(summary),'\n')
+                    os.append({'Date':date,'Summary':summary})
+        self.page_data['Occurrence Summary']=os
         return self.page_data
 
     async def _write_data(self):
