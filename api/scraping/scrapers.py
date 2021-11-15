@@ -1,8 +1,6 @@
-import asyncio
-import time
 import uuid
 import os
-import pickle
+import json
 from bs4 import BeautifulSoup
 from .utils import Utils
 from pathlib import Path
@@ -12,7 +10,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import NoSuchWindowException
+from selenium.common.exceptions import TimeoutException
 
 
 class CADORSQueryScrapper:
@@ -26,11 +24,14 @@ class CADORSQueryScrapper:
             config ([dict]): [Configuration path to provide configuration details]
         """
         self.driver = None
+        self.options = {}
         self.occurance_url = None
         self.items_per_page = -1
         self.current_page = 1
         self.current_item = 0
         self.occurances = -1
+        self.current_batch = 1
+        self.batch_size = int(config["batch_size"])
         self.base_url = config["base_url"] + config["query_page_extension"]
         self.driver_path = config["driver_path"]
         self.occurances_output_folder = config["occurances_output_folder"]
@@ -57,7 +58,7 @@ class CADORSQueryScrapper:
             ]
         """
         options = Options()
-        options.headless = True
+        options.headless = False
         options.add_argument("--window-size=1920,1200")
 
         driver = webdriver.Chrome(executable_path=self.driver_path, options=options)
@@ -69,13 +70,12 @@ class CADORSQueryScrapper:
         search_btn.click()
 
         wait = WebDriverWait(driver, 240)
+        print("Waiting to get Summary results....")
         wait.until(
             lambda x: x.find_element(
                 By.XPATH, "//*[contains(text(), ': Summary Results')]"
             )
         )
-
-        driver.get(driver.current_url)
 
         occurance_element = driver.find_element(
             By.XPATH, "//div[@class='col-md-6 mrgn-bttm-md form-inline']"
@@ -84,14 +84,23 @@ class CADORSQueryScrapper:
 
         ids_per_page_element = driver.find_element(By.ID, "hidRecordsPerPage")
 
+        input_top = driver.find_element(By.ID, "txtTopPageNumber")
+        driver.execute_script("arguments[0].value=''", input_top)
+        input_top.send_keys(str(self.current_page))
+        go_btn = driver.find_element(By.ID, "btnGoToPage")
+        go_btn.click()
+        print(driver.current_url)
+
         return (
             driver,
+            options,
             driver.current_url,
             int(Utils.get_numbers(occurance_text)[-1]),
-            int(ids_per_page_element.get_attribute("value")),
+            15
+            # int(ids_per_page_element.get_attribute("value")),
         )
 
-    async def scrape_occurances(self):
+    def scrape_occurances(self):
         """
         [
             Function to scrape page occurances on the page
@@ -99,6 +108,7 @@ class CADORSQueryScrapper:
         """
         (
             self.driver,
+            self.options,
             self.occurance_url,
             self.occurances,
             self.items_per_page,
@@ -115,19 +125,23 @@ class CADORSQueryScrapper:
             self.urls.append(element.get_attribute("href"))
 
             self.current_item += 1
+            print(f"URLS fetched: {self.urls[-1]}")
+            print(self.current_item)
 
             if self.current_item == self.items_per_page:
-
-                # only for local will have to change for lambda
-                await self._write_occurances_files(self.urls)
-                self.urls = []
                 # End of page
-                # Change url code goes here
+
+                # writing it to files
+                if self.current_batch == self.batch_size:
+                    print("Printing the occurances")
+                    self._write_occurances_files(self.urls)
+                    self.urls = []
+                    self.current_batch = 1
 
                 next_button = self.driver.find_element(By.ID, "btnNextTop")
+                print("Clicking the next button")
                 next_button.click()
 
-                time.sleep(10)
                 wait = WebDriverWait(self.driver, 240)
                 wait.until(
                     lambda x: int(
@@ -140,12 +154,11 @@ class CADORSQueryScrapper:
                     )
                     == self.current_page + 1
                 )
-                self.driver.get(self.driver.current_url)
                 self.current_page += 1
-                print(self.driver.current_url)
+                self.current_batch += 1
                 self.current_item = 0
 
-    async def _write_occurances_files(self, occurances: list):
+    def _write_occurances_files(self, occurances: list):
         """
         Function to write all occurance urls to files
 
@@ -154,9 +167,9 @@ class CADORSQueryScrapper:
         """
         print("Trying to print the occurances")
         with open(
-            os.path.join(self.occurances_output_folder, str(uuid.uuid4())), "wb"
+            os.path.join(self.occurances_output_folder, str(uuid.uuid4()) + ".txt"), "w"
         ) as f:
-            pickle.dump(occurances, f)
+            json.dump(occurances, f)
 
 
 class CADORSPageScrapper:
@@ -249,6 +262,8 @@ class CADORSPageScrapper:
 
                     self.page_data[key] = val
                 cnt += 1
+
+        return self.page_data
 
     async def _write_data(self):
         pass

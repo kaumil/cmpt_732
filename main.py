@@ -2,10 +2,8 @@ import configparser
 import os
 import json
 import gzip
-import pickle
-import uuid
-import asyncio
 from pathlib import Path
+
 from api.scraping.scrapers import CADORSPageScrapper, CADORSQueryScrapper
 
 
@@ -14,7 +12,7 @@ def main(scraping_config):
 
     # getting occurances
     query_scrapper = CADORSQueryScrapper(scraping_config)
-    asyncio.run(query_scrapper.scrape_occurances())
+    query_scrapper.scrape_occurances()
 
     print("Completed scrapping occurance urls.")
 
@@ -23,31 +21,44 @@ def main(scraping_config):
     Path(scraping_config["page_data_output_folder"]).mkdir(parents=True, exist_ok=True)
     cnt = 0
 
-    for file in os.listdir(scraping_config["occurances_output_folder"]):
-        # for file in fnames:
-        with open(
-            os.path.join(scraping_config["occurances_output_folder"], str(file)), "rb"
-        ) as f:
-            occurances = pickle.load(f)
-            file_data = []
-            for occurance in occurances:
-                print(cnt)
-                obj = CADORSPageScrapper(url=occurance, config=scraping_config)
-                file_data.append(obj.scrape_data())
-                cnt += 1
+    # @gurashish start from over here....
 
-            json_str = json.dumps(file_data) + "\n"
-            json_bytes = json_str.encode("utf-8")
+    # for file in os.listdir(scraping_config["occurances_output_folder"]):
+    #     # for file in fnames:
+    #     with open(
+    #         os.path.join(scraping_config["occurances_output_folder"], str(file)),
+    #         "r",
+    #     ) as f:
+    #         occurances = json.load(f)  # new logic
+    #         file_data = []
+    #         for occurance in occurances:
+    #             print(occurance)
+    #             print(cnt)
+    #             obj = CADORSPageScrapper(url=occurance, config=scraping_config)
+    #             file_data.append(obj.scrape_data())
+    #             cnt += 1
 
-            with gzip.open(
-                os.path.join(
-                    scraping_config["page_data_output_folder"], str(uuid.uuid4())
-                ),
-                "w",
-            ) as fout:
-                fout.write(json_bytes)
+    # json_str = json.dumps(file_data) + "\n"
+    # json_bytes = json_str.encode("utf-8")
 
-    print("Completed scraping all page data")
+    #         with open(
+    #             os.path.join(
+    #                 scraping_config["page_data_output_folder"],
+    #                 str(uuid.uuid4()) + ".json",
+    #             ),
+    #             "w",
+    #         ) as f:
+    #             json.dump(file_data, f)
+
+    #         # with gzip.open(
+    #         #     os.path.join(
+    #         #         scraping_config["page_data_output_folder"], str(uuid.uuid4())
+    #         #     ),
+    #         #     "w",
+    #         # ) as fout:
+    #         #     fout.write(json_bytes)
+
+    # print("Completed scraping all page data")
 
 
 if __name__ == "__main__":
