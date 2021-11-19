@@ -11,19 +11,25 @@ class WeatherService:
 
     def get_weather(self, date, aerodrome_id, occurence_location, province, country):
         address = occurence_location + ', ' + province + ', ' + country
-        coordinates = self._locate_coordinates(address)
+        coordinates = self._locate_coordinates(address)    
         
-        # If occurence location is not sensitive enough, default to aerodrome location
+        # If occurence address string is too specific, try the location only
+        if not coordinates:
+            coordinates = self._locate_coordinates(occurence_location)
+        
+        # If that doesn't work, try the airport location only as an approximation
         if not coordinates:
             coordinates = self._locate_coordinates(aerodrome_id + ', ' + country)
             
         if not coordinates:
             raise WeatherServiceFailedToLocateException(date + address)
         
+        date_time = datetime.strptime(date, '%Y-%m-%d')
         point = Point(coordinates.latitude, coordinates.longitude)
-        weather = Daily(point, date, date)
+        weather = Daily(point, date_time, date_time)
         
         return weather.fetch()
 
+    # consider also using mapbox or photon
     def _locate_coordinates(self, location):
         return self.geolocator.geocode(location)
