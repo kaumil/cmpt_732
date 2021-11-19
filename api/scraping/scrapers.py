@@ -364,7 +364,7 @@ class CADORSPageScrapper:
                     "section", attrs={"class": "mrgn-bttm-sm panel panel-primary bullet_left_15px"}
                 ) 
                 for airevent in aircraft_event_info:
-                    print(airevent)
+                    # print(airevent)
                     aircraft_event=[]
                     if airevent.find("ul") is not None:
                         for li in airevent.find("ul"):
