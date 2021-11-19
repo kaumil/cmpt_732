@@ -1,4 +1,6 @@
 from geopy.geocoders import Nominatim
+from datetime import datetime
+from meteostat import Point, Daily
 from WeatherServiceExceptions import WeatherServiceFailedToLocateException
 
 APP_DESCRIPTION = 'CADORS: Civil Aviation Safety Research - Simon Fraser University, BC, Canada'
@@ -18,7 +20,10 @@ class WeatherService:
         if not coordinates:
             raise WeatherServiceFailedToLocateException(date + address)
         
-        # return weatherapi(date, coordinates.latitude, coordinates.longitude)
+        point = Point(coordinates.latitude, coordinates.longitude)
+        weather = Daily(point, date, date)
+        
+        return weather.fetch()
 
     def _locate_coordinates(self, location):
         return self.geolocator.geocode(location)
