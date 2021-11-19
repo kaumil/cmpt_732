@@ -1,3 +1,5 @@
+import re
+
 from geopy.geocoders import Nominatim
 from datetime import datetime
 from meteostat import Point, Daily
@@ -8,8 +10,17 @@ APP_DESCRIPTION = 'CADORS: Civil Aviation Safety Research - Simon Fraser Univers
 class WeatherService:
     def __init__(self):
         self.geolocator = Nominatim(user_agent=APP_DESCRIPTION)
+        
+        """ This regular expression removes all extraneous information in parantheses
+            Example: Vancouver International  (CYVR) => Vancouver International
+        """ 
+        self.pattern = re.compile(r'\([^)]*\)')
 
     def get_weather(self, date, aerodrome_id, occurence_location, province, country):
+        
+        # Clean the location string, remove province, airport code
+        occurence_location = self.pattern.sub('', occurence_location)
+
         address = occurence_location + ', ' + province + ', ' + country
         coordinates = self._locate_coordinates(address)    
         
@@ -20,7 +31,7 @@ class WeatherService:
         # If that doesn't work, try the airport location only as an approximation
         if not coordinates:
             coordinates = self._locate_coordinates(aerodrome_id + ', ' + country)
-            
+        
         if not coordinates:
             raise WeatherServiceFailedToLocateException(date + address)
         
