@@ -7,7 +7,7 @@ from meteostat import Point, Daily
 from WeatherExceptions import WeatherServiceFailedToLocateException
 from WeatherExceptions import WeatherServiceFailedToRetrieveException
 
-API_WAIT_INTERVAL = 0.75
+API_WAIT_INTERVAL = 1.1
 API_APP_DESCRIPTION = 'CADORS: Civil Aviation Safety Research - Simon Fraser University, BC, Canada'
 
 class WeatherService:
@@ -19,12 +19,12 @@ class WeatherService:
         """[Instantiates a WeatherService object]
         """        
         
-        """ Uses OpenMaps Photon API
+        """ This geocoder uses OpenMaps Photon API
             Limitation: No limitation on API Calls
         """    
         self.primary_geolocator = Photon(user_agent=API_APP_DESCRIPTION)
         
-        """ Uses OpenMaps Nominatim API
+        """ This geocoder uses OpenMaps Nominatim API
             Limitation: 60 calls per minute
         """    
         self.secondary_geolocator = Nominatim(user_agent=API_APP_DESCRIPTION)
@@ -33,11 +33,11 @@ class WeatherService:
             It use used by the remove_province_code() function
         """ 
         self.parantheses_pattern = re.compile(r'\([^)]*\)')
-        
+
 
     def retrieve_weather(self, date, aerodrome_id, occurence_location, province, country):
-        """[Returns a weather dataframe relating to the date and location of the occurence
-            Note: this cannot be done in parallel due to API limitation of 60 requests/min]
+        """[Returns a weather dataframe based on the date and location of the occurence
+            Note: this method can be used in parallel with no sleep time in between calls]
 
         Args:
             date ([string]): [date in YYYY-MM-DD format]
@@ -137,9 +137,10 @@ class WeatherService:
 
         return weather
 
+
     def _locate_coordinates(self, location):
         """[Given a location string, attempt to return an object with the coodinates
-            Note: this can be called in parallel, no request limit is specified]
+            Note: this can be called in parallel, no API request limit is specified]
 
         Args:
             location ([string]): [a full location string: e.g. Stave Lake, BC, Canada]
@@ -152,9 +153,10 @@ class WeatherService:
         
         return coordinates
 
+
     def _locate_airport_code(self, location):
         """[Given a location string, attempt to return an object with the coodinates
-            Note: this cannot be done in parallel due to API limitation of 60 requests/min]
+            Note: this method will cause a delay of 1s due to API limitation of 60 requests/min]
 
         Args:
             location ([string]): [a full location string: e.g. Stave Lake, BC, Canada]
@@ -168,6 +170,7 @@ class WeatherService:
         
         return coordinates
 
+
     def _remove_aerodrome_code(self, location):
         """[Removes the aerodrome code from a location string
            Example: Vancouver BC (CYVR) => Vancouver BC]
@@ -178,7 +181,9 @@ class WeatherService:
         Returns:
             [string]: [location with province code removed]
         """        
+        
         return self.parantheses_pattern.sub('', location)
+
 
     def _remove_province_code(self, location):
         """[Removes the province code from a location string
