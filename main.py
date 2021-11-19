@@ -5,6 +5,7 @@ import time
 import shutil
 import logging
 import uuid
+import time
 
 from pathlib import Path
 from api.scraping.scrapers import CADORSPageScrapper, CADORSQueryScrapper
@@ -42,14 +43,18 @@ def scrape_occurences(scraping_config):
             occurances = json.load(f)  # new logic
 
             for occurance in occurances:
+                
                 try:
                     obj = CADORSPageScrapper(url=occurance, config=scraping_config)
                     file_data.append(obj.scrape_data())
                     cnt += 1
                     print('\n', '>>> Processed record #', cnt)
+                    
                 except Exception as e:
                     print('>>>>>>> ERROR: COULD NOT PROCESS RECORD #', cnt, str(e))
                     logging.error(str(e))
+                    time.sleep(5)
+                    
 
         print("Moving file")
         shutil.move(src=src, dst=dest)

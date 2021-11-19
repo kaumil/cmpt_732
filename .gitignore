@@ -1,7 +1,8 @@
-# Outputs
-occurences_output/
+# Local files
+occurances_output/
 page_data_output/
 scraped_occurances_urls/
+config.ini
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -12,6 +13,8 @@ __pycache__/
 *.so
 
 # Distribution / packaging
+chromedriver.exe
+.vscode/
 .Python
 build/
 develop-eggs/
