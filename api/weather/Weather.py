@@ -7,7 +7,7 @@ from meteostat import Point, Daily
 from WeatherExceptions import WeatherServiceFailedToLocateException
 from WeatherExceptions import WeatherServiceFailedToRetrieveException
 
-API_WAIT_INTERVAL = 1.1
+API_WAIT_INTERVAL = 0.75
 API_APP_DESCRIPTION = 'CADORS: Civil Aviation Safety Research - Simon Fraser University, BC, Canada'
 
 class WeatherService:
@@ -82,10 +82,10 @@ class WeatherService:
             weather = Daily(point, date_time, date_time).fetch()
             
             if weather.empty:
-                approximate_coordinates = self._locate_airport_code(aerodrome_id)
+                approximate_coordinates = self._locate_coordinates_alternate(aerodrome_id)
                 
                 if not approximate_coordinates:
-                    region_coordinates = self._locate_coordinates(province + ', ' + country)
+                    region_coordinates = self._locate_coordinates_alternate('Downtown ' + province + ', ' + country)
                    
                     if not region_coordinates:
                         raise WeatherServiceFailedToLocateException(province + country)
@@ -98,7 +98,7 @@ class WeatherService:
                     weather = Daily(point, date_time, date_time).fetch()
                     
                     if weather.empty:
-                        region_coordinates = self._locate_coordinates(province + ', ' + country)
+                        region_coordinates = self._locate_coordinates_alternate('Downtown ' + province + ', ' + country)
                    
                         if not region_coordinates:
                             raise WeatherServiceFailedToLocateException(province + country)
@@ -107,10 +107,10 @@ class WeatherService:
                         weather = Daily(point, date_time, date_time).fetch()
         
         else:
-                approximate_coordinates = self._locate_airport_code(aerodrome_id)
+                approximate_coordinates = self._locate_coordinates_alternate(aerodrome_id)
             
                 if not approximate_coordinates:
-                    region_coordinates = self._locate_coordinates(province + ', ' + country)
+                    region_coordinates = self._locate_coordinates_alternate('Downtown ' + province + ', ' + country)
                    
                     if not region_coordinates:
                         raise WeatherServiceFailedToLocateException(province + country)
@@ -123,7 +123,7 @@ class WeatherService:
                     weather = Daily(point, date_time, date_time).fetch()
                     
                     if weather.empty:
-                        region_coordinates = self._locate_coordinates(province + ', ' + country)
+                        region_coordinates = self._locate_coordinates_alternate('Downtown ' + province + ', ' + country)
                    
                         if not region_coordinates:
                             raise WeatherServiceFailedToLocateException(province + country)
@@ -154,7 +154,7 @@ class WeatherService:
         return coordinates
 
 
-    def _locate_airport_code(self, location):
+    def _locate_coordinates_alternate(self, location):
         """[Given a location string, attempt to return an object with the coodinates
             Note: this method will cause a delay of 1s due to API limitation of 60 requests/min]
 

@@ -11,10 +11,10 @@ def main():
     print(ws.retrieve_weather('2005-11-13', 'cyvr', 'richmond BC (CYVR)', 'BC', 'Canada'), '\n')
     
     print('=== WEMINDJI QC (CYNC) === ')
-    print(ws.retrieve_weather('2021-11-13', 'cync', 'WEMINDJI QC (CYNC)', 'QC', 'Canada'), '\n')
+    print(ws.retrieve_weather('2019-11-13', 'cync', 'WEMINDJI QC (CYNC)', 'QC', 'Canada'), '\n')
     
     print('=== KANGIQSUALUJJUAQ (GEORGES RIVER) QC (CYLU) === ')
-    print(ws.retrieve_weather('2021-11-13', 'cylu', 'KANGIQSUALUJJUAQ (GEORGES RIVER) QC', 'QC', 'Canada'), '\n')
+    print(ws.retrieve_weather('2018-11-13', 'cylu', 'KANGIQSUALUJJUAQ (GEORGES RIVER) QC', 'QC', 'Canada'), '\n')
     
     print('=== 15NM W QUÉBEC / JEAN LESAGE INTL QC (CYQB) === ')
     print(ws.retrieve_weather('2021-11-13', 'cyqb', '15NM W QUÉBEC / JEAN LESAGE INTL QC (CYQB)', 'QC', 'Canada'), '\n')
