@@ -9,17 +9,26 @@ APP_DESCRIPTION = 'CADORS: Civil Aviation Safety Research - Simon Fraser Univers
 
 class WeatherService:
     def __init__(self):
+        """ Uses OpenMaps Nominatim API
+            Limitation: 60 calls per minute
+        """    
         self.geolocator = Nominatim(user_agent=APP_DESCRIPTION)
         
         """ This regular expression removes all extraneous information in parantheses
             Example: Vancouver International  (CYVR) => Vancouver International
         """ 
-        self.pattern = re.compile(r'\([^)]*\)')
+        self.parantheses_pattern = re.compile(r'\([^)]*\)')
+        
+        """ This regular expression removes the province as it is already a field
+            Example: Vancouver International BC => Vancouver International
+        """ 
+        self.province_pattern = re.compile(r'([A-Z]{2})')
 
     def get_weather(self, date, aerodrome_id, occurence_location, province, country):
         
         # Clean the location string, remove province, airport code
-        occurence_location = self.pattern.sub('', occurence_location)
+        occurence_location = self.parantheses_pattern.sub('', occurence_location)
+        occurence_location = self.province_pattern.sub('', occurence_location)
 
         address = occurence_location + ', ' + province + ', ' + country
         coordinates = self._locate_coordinates(address)    
@@ -39,7 +48,7 @@ class WeatherService:
         point = Point(coordinates.latitude, coordinates.longitude)
         weather = Daily(point, date_time, date_time)
         
-        return weather.fetch()
+        return occurence_location #weather.fetch()
 
     # consider also using mapbox or photon
     def _locate_coordinates(self, location):
