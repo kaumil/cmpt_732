@@ -1,15 +1,20 @@
-    # print('=== COORDS ===')
-    # coords = ws._locate_coordinates('Stave Lake, BC, Canada')
-    # print(coords.latitude, coords.longitude)
-    
-    # print('=== CYVR === ')
-    # print(ws.get_weather('2020-11-13', 'cyvr', 'richmond BC (CYVR)', 'BC', 'Canada'))
-    # time.sleep(1)
-    
-    # print('=== WEMINDJI QC (CYNC) === ')
-    # print(ws.get_weather('2020-11-13', 'cync', 'WEMINDJI QC (CYNC)', 'QC', 'Canada'))
-    # time.sleep(1)
-    
-    # print('=== KANGIQSUALUJJUAQ (GEORGES RIVER) QC (CYLU) === ')
-    # print(ws.get_weather('2020-11-13', 'cylu', 'KANGIQSUALUJJUAQ (GEORGES RIVER) QC', 'QC', 'Canada'))
-    # time.sleep(1)
+from Weather import WeatherService
+from meteostat import Point, Daily
+from datetime import datetime
+
+ws = WeatherService()
+
+loc = ws._locate_airport_code('cyvr')
+
+#loc = ws._locate_coordinates('KANGIQSUALUJJUAQ, QC, Canada')
+
+print(loc)
+
+pt = Point(loc.latitude, loc.longitude)
+
+day = datetime.strptime('2015-11-13', '%Y-%m-%d')
+
+
+wx = Daily(pt, day, day).fetch()
+
+print(wx)
