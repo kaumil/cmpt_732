@@ -1,4 +1,5 @@
 import re
+import time
 
 from geopy.geocoders import Nominatim
 from datetime import datetime
@@ -6,7 +7,8 @@ from meteostat import Point, Daily
 from WeatherServiceExceptions import WeatherServiceFailedToLocateException
 from WeatherServiceExceptions import WeatherServiceFailedToRetrieveException
 
-APP_DESCRIPTION = 'CADORS: Civil Aviation Safety Research - Simon Fraser University, BC, Canada'
+API_WAIT_INTERVAL = 0.5
+API_APP_DESCRIPTION = 'CADORS: Civil Aviation Safety Research - Simon Fraser University, BC, Canada'
 
 class WeatherService:
     def __init__(self):
@@ -16,7 +18,7 @@ class WeatherService:
         """ Uses OpenMaps Nominatim API
             Limitation: 60 calls per minute
         """    
-        self.geolocator = Nominatim(user_agent=APP_DESCRIPTION)
+        self.geolocator = Nominatim(user_agent=API_APP_DESCRIPTION)
         
         """ This regular expression removes all extraneous information in parantheses
             Example: Vancouver International  (CYVR) => Vancouver International
@@ -29,7 +31,7 @@ class WeatherService:
         self.province_pattern = re.compile(r'([A-Z]{2})')
 
     def get_weather(self, date, aerodrome_id, occurence_location, province, country):
-        """[Returns a weather object relating to the date and location of the occurence]
+        """[Returns a weather dataframe relating to the date and location of the occurence]
 
         Args:
             date ([string]): [date in YYYY-MM-DD format]
@@ -59,20 +61,17 @@ class WeatherService:
         # Clean the location string, remove province, airport code
         occurence_location = self.parantheses_pattern.sub('', occurence_location)
         occurence_location = self.province_pattern.sub('', occurence_location)
-
-        address = occurence_location + ', ' + province + ', ' + country
-        coordinates = self._locate_coordinates(address)    
+        query_string = occurence_location + ', ' + province + ', ' + country
         
-        # If occurence address string is too specific, try the location only
-        if not coordinates:
-            coordinates = self._locate_coordinates(occurence_location)
+        coordinates = self._locate_coordinates(query_string)    
         
-        # If that doesn't work, try the airport location only as an approximation
+        # If the address string is too specific, use the airport as an approximation
         if not coordinates:
-            coordinates = self._locate_coordinates(aerodrome_id + ', ' + country)
+            time.sleep(2 * API_WAIT_INTERVAL)
+            coordinates = self._locate_coordinates(aerodrome_id)
         
         if not coordinates:
-            raise WeatherServiceFailedToLocateException(date + address)
+            raise WeatherServiceFailedToLocateException(date + query_string)
         
         date_time = datetime.strptime(date, '%Y-%m-%d')
         point = Point(coordinates.latitude, coordinates.longitude)
@@ -81,7 +80,9 @@ class WeatherService:
         weather_data = weather.fetch()
         
         if weather_data.empty:
-            raise WeatherServiceFailedToRetrieveException(date + address)
+            raise WeatherServiceFailedToRetrieveException(date + query_string)
+        
+        time.sleep(API_WAIT_INTERVAL)
         
         return weather_data
 
