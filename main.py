@@ -3,30 +3,33 @@ import os
 import json
 import time
 import shutil
-from pathlib import Path
+import logging
 import uuid
+import time
 
+from pathlib import Path
 from api.scraping.scrapers import CADORSPageScrapper, CADORSQueryScrapper
 
+URL_SCRAPING_FINISHED = True
+OCCURENCE_COUNTER_START = 0
 
-def main(scraping_config):
-    # print("Starting to scrape the occurance links of all CADORS incidents")
+def scrape_urls(scraping_config):
+    print("Starting to scrape the occurance links of all CADORS incidents")
 
-    # # getting occurances
-    # query_scrapper = CADORSQueryScrapper(scraping_config)
-    # query_scrapper.scrape_occurances()
+    # getting occurances
+    query_scrapper = CADORSQueryScrapper(scraping_config)
+    query_scrapper.scrape_occurances()
 
-    # print("Completed scrapping occurance urls.")
+    print("Completed scrapping occurance urls.")
 
-    # print("Starting to scrape page data.")
 
-    # @gurashish start from over here....
-
+def scrape_occurences(scraping_config):
     Path(scraping_config["page_data_output_folder"]).mkdir(parents=True, exist_ok=True)
-    Path(scraping_config["scraped_occurances_folder"]).mkdir(
-        parents=True, exist_ok=True
-    )
-    cnt = 0
+    Path(scraping_config["scraped_occurances_folder"]).mkdir(parents=True, exist_ok=True
+                                                             )
+    cnt = OCCURENCE_COUNTER_START
+    
+    print("Starting to scrape page data.")
 
     for file in os.listdir(scraping_config["occurances_output_folder"]):
         # for file in fnames:
@@ -40,13 +43,18 @@ def main(scraping_config):
             occurances = json.load(f)  # new logic
 
             for occurance in occurances:
-                # print('GURDEBUG--------------')
-                # print('occurence',occurance)
-                obj = CADORSPageScrapper(url=occurance, config=scraping_config)
-                file_data.append(obj.scrape_data())
-                # print("\nGURdata\n", file_data)
-                cnt += 1
-                print(cnt)
+                
+                try:
+                    obj = CADORSPageScrapper(url=occurance, config=scraping_config)
+                    file_data.append(obj.scrape_data())
+                    cnt += 1
+                    print('\n', '>>> Processed record #', cnt)
+                    
+                except Exception as e:
+                    print('>>>>>>> ERROR: COULD NOT PROCESS RECORD #', cnt, str(e))
+                    logging.error(str(e))
+                    time.sleep(5)
+                    
 
         print("Moving file")
         shutil.move(src=src, dst=dest)
@@ -67,9 +75,16 @@ def main(scraping_config):
     print("Completed scraping all page data")
 
 
+def main(scraping_config):
+    if not URL_SCRAPING_FINISHED:
+        scrape_urls(scraping_config)
+    scrape_occurences(scraping_config)
+
 if __name__ == "__main__":
     config = configparser.ConfigParser()
     config.read("config.ini")
     scraping_config = dict(config.items("scraping"))
+    logging.basicConfig(filename='log.txt', encoding='utf-8', level=logging.ERROR)
 
     main(scraping_config)
+    
