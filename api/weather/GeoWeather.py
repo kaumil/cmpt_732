@@ -4,13 +4,13 @@ import time
 from geopy.geocoders import Photon, Nominatim
 from datetime import datetime
 from meteostat import Point, Daily
-from WeatherExceptions import WeatherServiceFailedToLocateException
-from WeatherExceptions import WeatherServiceFailedToRetrieveException
+from GeoWeatherExceptions import GeoWeatherServiceFailedToLocateException
+from GeoWeatherExceptions import GeoWeatherServiceFailedToRetrieveException
 
 API_WAIT_INTERVAL = 0.75
 API_APP_DESCRIPTION = 'CADORS: Civil Aviation Safety Research - Simon Fraser University, BC, Canada'
 
-class WeatherService:
+class GeoWeatherService:
     """[A  class to provide a Weather Service to locate and return
        weather information for a given location, date and time.]
     """
@@ -35,8 +35,8 @@ class WeatherService:
         self.parantheses_pattern = re.compile(r'\([^)]*\)')
 
 
-    def retrieve_weather(self, date, aerodrome_id, occurence_location, province, country):
-        """[Returns a weather dataframe based on the date and location of the occurence
+    def retrieve_data(self, date, aerodrome_id, occurence_location, province, country):
+        """[Returns a location and weather object based on the date and location of the occurence
             Note: this method can be used in parallel with no sleep time in between calls]
 
         Args:
@@ -51,7 +51,8 @@ class WeatherService:
             WeatherServiceFailedToRetrieveException: [when there is no weather information available near this coordinate]
 
         Returns:
-            [Weather]: [Dataframe with  the following weather attributes]
+            ([Location]: [Location object with latitude and longitude fields],
+            [Weather]: [Dataframe with the following weather attributes])
             tavg: average temperature in C
             tmin: minimum temperature in C
             tmax: maximum temperature in C
@@ -88,7 +89,7 @@ class WeatherService:
                     region_coordinates = self._locate_coordinates_alternate('Downtown ' + province + ', ' + country)
                    
                     if not region_coordinates:
-                        raise WeatherServiceFailedToLocateException(province + country)
+                        raise GeoWeatherServiceFailedToLocateException(province + country)
                 
                     point = Point(region_coordinates.latitude, region_coordinates.longitude)
                     weather = Daily(point, date_time, date_time).fetch()
@@ -101,7 +102,7 @@ class WeatherService:
                         region_coordinates = self._locate_coordinates_alternate('Downtown ' + province + ', ' + country)
                    
                         if not region_coordinates:
-                            raise WeatherServiceFailedToLocateException(province + country)
+                            raise GeoWeatherServiceFailedToLocateException(province + country)
                     
                         point = Point(region_coordinates.latitude, region_coordinates.longitude)
                         weather = Daily(point, date_time, date_time).fetch()
@@ -113,7 +114,7 @@ class WeatherService:
                     region_coordinates = self._locate_coordinates_alternate('Downtown ' + province + ', ' + country)
                    
                     if not region_coordinates:
-                        raise WeatherServiceFailedToLocateException(province + country)
+                        raise GeoWeatherServiceFailedToLocateException(province + country)
                 
                     point = Point(region_coordinates.latitude, region_coordinates.longitude)
                     weather = Daily(point, date_time, date_time).fetch()
@@ -126,16 +127,31 @@ class WeatherService:
                         region_coordinates = self._locate_coordinates_alternate('Downtown ' + province + ', ' + country)
                    
                         if not region_coordinates:
-                            raise WeatherServiceFailedToLocateException(province + country)
+                            raise GeoWeatherServiceFailedToLocateException(province + country)
                     
                         point = Point(region_coordinates.latitude, region_coordinates.longitude)
                         weather = Daily(point, date_time, date_time).fetch()
             
         # If weather is still empty after primary, secondary, and tertiary searches, throw an exception
         if weather.empty:
-            raise WeatherServiceFailedToRetrieveException('Weather primary and secondary and provincial search failed', aerodrome_id, query_string)
+            raise GeoWeatherServiceFailedToRetrieveException('Weather primary and secondary and provincial search failed', aerodrome_id, query_string)
 
-        return weather
+
+        # Return the most specific coordinates as the first value of the tuple,
+        # Regardless if whether or not weather was available at this location
+        
+        location = exact_coordinates 
+        
+        if not location:
+            location = approximate_coordinates
+            
+        if not location:
+            location = region_coordinates
+            
+        if not location:
+            raise GeoWeatherServiceFailedToLocateException(query_string)
+
+        return (location, weather)
 
 
     def _locate_coordinates(self, location):

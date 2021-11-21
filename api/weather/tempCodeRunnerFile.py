@@ -1,20 +1,15 @@
-from Weather import WeatherService
-from meteostat import Point, Daily
-from datetime import datetime
+from GeoWeather import GeoWeatherService
+from GeoWeatherExceptions import GeoWeatherServiceFailedToLocateException, GeoWeatherServiceFailedToRetrieveException
 
-ws = WeatherService()
-
-loc = ws._locate_airport_code('cyvr')
-
-#loc = ws._locate_coordinates('KANGIQSUALUJJUAQ, QC, Canada')
-
-print(loc)
-
-pt = Point(loc.latitude, loc.longitude)
-
-day = datetime.strptime('2015-11-13', '%Y-%m-%d')
+ws = GeoWeatherService()
 
 
-wx = Daily(pt, day, day).fetch()
+try:
+    coords, weather_data = ws.retrieve_data('2021-05-05', 'rtwrwerwerewrwerwerwe', 'stavwerwerwerwerewrwerwerwerfsdfsdfsdfe lwerewrwerwerewrwerake', 'sdfsdfdsfsdfwerwerewrwerbc', 'cawerwerwerwerwerewrwerwernada')
+except GeoWeatherServiceFailedToLocateException:
+    print('failed to locate')
+except GeoWeatherServiceFailedToRetrieveException:
+    print('failed to get weather')
 
-print(wx)
+
+#print(coords.latitude, coords.longitude, '\n', weather_data)
