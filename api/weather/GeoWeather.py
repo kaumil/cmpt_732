@@ -138,7 +138,7 @@ class GeoWeatherService:
 
 
         # Return the most specific coordinates as the first value of the tuple,
-        # Regardless if whether or not weather was available at this location
+        # Regardless of whether or not weather was available at this location
         
         location = exact_coordinates 
         
